@@ -16,6 +16,7 @@ export default function Success() {
   const storeState = useSubmissionStore();
   const hasSaved = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const [realMetrics, setRealMetrics] = useState({
     todaysParticipants: 0,
     todaysSavings: 0
@@ -38,6 +39,25 @@ export default function Success() {
         const deviceId = getDeviceId();
         if (!storeState.ecosystemId || !storeState.session) {
           setSaveError("Session expired. Please scan the QR and submit again.");
+          return;
+        }
+
+        const { data: canSubmitToSession, error: canSubmitError } = await supabase.rpc(
+          "can_submit_to_session",
+          {
+            p_ecosystem_id: storeState.ecosystemId,
+            p_session_id: storeState.session,
+          }
+        );
+
+        if (canSubmitError) {
+          throw new Error(
+            "Submission validation is unavailable. Ask admin to run student_submission_rls_fix.sql in Supabase."
+          );
+        }
+
+        if (!canSubmitToSession) {
+          setSaveError("Session is closed or invalid. Please rescan the latest QR from staff.");
           return;
         }
 
@@ -75,7 +95,10 @@ export default function Success() {
             .from("dish_feedback")
             .insert(feedbackRows);
           
-          if (fbErr) throw fbErr;
+          if (fbErr) {
+            console.warn("Feedback insert failed after submission save:", fbErr);
+            setSaveWarning("Plate was submitted, but dish feedback could not be saved.");
+          }
         }
 
         console.log("Successfully saved submission");
@@ -239,6 +262,11 @@ export default function Success() {
           {saveError && (
             <p className="text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl py-3 px-4 mb-8">
               {saveError}
+            </p>
+          )}
+          {saveWarning && (
+            <p className="text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-xl py-3 px-4 mb-8">
+              {saveWarning}
             </p>
           )}
         </motion.div>

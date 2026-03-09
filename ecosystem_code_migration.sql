@@ -236,6 +236,21 @@ $$ LANGUAGE SQL SECURITY DEFINER SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.can_submit_to_session(UUID, UUID) TO anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.can_insert_feedback_for_submission(
+  p_ecosystem_id UUID,
+  p_submission_id UUID
+)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.submissions s
+    WHERE s.id = p_submission_id
+      AND s.ecosystem_id = p_ecosystem_id
+  );
+$$ LANGUAGE SQL SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION public.can_insert_feedback_for_submission(UUID, UUID) TO anon, authenticated;
+
 DROP POLICY IF EXISTS "Public can view approved sessions" ON public.meal_sessions;
 CREATE POLICY "Public can view approved sessions"
 ON public.meal_sessions
@@ -258,12 +273,7 @@ ON public.dish_feedback
 FOR INSERT
 TO anon, authenticated
 WITH CHECK (
-  EXISTS (
-    SELECT 1
-    FROM public.submissions s
-    WHERE s.id = dish_feedback.submission_id
-      AND s.ecosystem_id = dish_feedback.ecosystem_id
-  )
+  public.can_insert_feedback_for_submission(ecosystem_id, submission_id)
 );
 
 -- ============================================================
