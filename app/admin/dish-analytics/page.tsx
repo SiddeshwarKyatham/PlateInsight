@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Search, Info, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Search, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "../../../utils/supabase/client";
@@ -32,6 +32,7 @@ export default function DishAnalytics() {
         .from('dish_feedback')
         .select('dish_name, food_type, waste_percent, sentiment')
         .eq('ecosystem_id', profile.ecosystem_id);
+      if (error) throw error;
 
       if (data && data.length > 0) {
         const dishMap: Record<string, any> = {};
@@ -61,7 +62,7 @@ export default function DishAnalytics() {
             name: d.name,
             category: d.category === 'veg' ? 'Veg' : d.category === 'nonveg' ? 'Non-Veg' : 'General',
             waste: avgWaste,
-            costLoss: `₹${(avgWaste * 15).toLocaleString()}`, // Mock calculation
+            feedbackCount: d.count,
             status: avgWaste > 40 ? 'Critical' : avgWaste > 25 ? 'Warning' : 'Good',
             satisfaction: Math.round((d.positives / d.count) * 100)
           };
@@ -206,7 +207,7 @@ export default function DishAnalytics() {
                   <th className="text-left px-5 lg:px-6 py-5 text-xs font-black text-muted-foreground uppercase tracking-widest rounded-tl-xl border-b border-gray-100">Dish Name</th>
                   <th className="text-left px-5 lg:px-6 py-5 text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-gray-100">Category</th>
                   <th className="text-left px-5 lg:px-6 py-5 text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-gray-100">Waste %</th>
-                  <th className="text-left px-5 lg:px-6 py-5 text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-gray-100">Lost Revenue</th>
+                  <th className="text-left px-5 lg:px-6 py-5 text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-gray-100">Feedback Count</th>
                   <th className="text-left px-5 lg:px-6 py-5 text-xs font-black text-muted-foreground uppercase tracking-widest rounded-tr-xl border-b border-gray-100">Status</th>
                 </tr>
               </thead>
@@ -249,7 +250,7 @@ export default function DishAnalytics() {
                       </div>
                     </td>
                     <td className="px-5 lg:px-6 py-5">
-                      <span className="font-black text-foreground">{dish.costLoss}</span>
+                      <span className="font-black text-foreground">{dish.feedbackCount}</span>
                     </td>
                     <td className="px-5 lg:px-6 py-5">
                       <span className={`px-3 py-1.5 text-xs font-black rounded-lg uppercase tracking-wider ${
