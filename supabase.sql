@@ -229,6 +229,20 @@ RETURNS UUID AS $$
   SELECT ecosystem_id FROM public.users WHERE id = auth.uid() LIMIT 1;
 $$ LANGUAGE SQL SECURITY DEFINER SET search_path = public;
 
+-- Student-safe helper for anon QR scan submissions
+CREATE OR REPLACE FUNCTION public.can_submit_to_session(p_ecosystem_id UUID, p_session_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.meal_sessions ms
+    WHERE ms.id = p_session_id
+      AND ms.ecosystem_id = p_ecosystem_id
+      AND ms.status = 'approved'
+  );
+$$ LANGUAGE SQL SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION public.can_submit_to_session(UUID, UUID) TO anon, authenticated;
+
 -- Resolve ecosystem id from human shareable code (case-insensitive)
 CREATE OR REPLACE FUNCTION resolve_ecosystem_id_by_code(input_code TEXT)
 RETURNS UUID AS $$
@@ -489,7 +503,7 @@ CREATE POLICY "Staff can attach ecosystem id while pending" ON public.users FOR 
 );
 
 -- MEAL SESSIONS:
-CREATE POLICY "Public can view approved sessions" ON meal_sessions FOR SELECT USING (status = 'approved');
+CREATE POLICY "Public can view approved sessions" ON meal_sessions FOR SELECT TO anon, authenticated USING (status = 'approved');
 CREATE POLICY "Staff/Admin can view ecosystem sessions" ON meal_sessions FOR SELECT TO authenticated USING (ecosystem_id = get_my_ecosystem_id());
 CREATE POLICY "Staff/Admin can insert into ecosystem sessions" ON meal_sessions FOR INSERT TO authenticated WITH CHECK (ecosystem_id = get_my_ecosystem_id());
 CREATE POLICY "Staff/Admin can update ecosystem sessions" ON meal_sessions FOR UPDATE TO authenticated USING (ecosystem_id = get_my_ecosystem_id());
@@ -506,19 +520,13 @@ CREATE POLICY "Public can view menu items for approved sessions" ON menu_items F
 CREATE POLICY "Staff/Admin can manage ecosystem menu items" ON menu_items FOR ALL TO authenticated USING (ecosystem_id = get_my_ecosystem_id()) WITH CHECK (ecosystem_id = get_my_ecosystem_id());
 
 -- SUBMISSIONS:
-CREATE POLICY "Students can insert submissions" ON submissions FOR INSERT WITH CHECK (
-  EXISTS (
-    SELECT 1
-    FROM meal_sessions ms
-    WHERE ms.id = submissions.session_id
-      AND ms.ecosystem_id = submissions.ecosystem_id
-      AND ms.status = 'approved'
-  )
+CREATE POLICY "Students can insert submissions" ON submissions FOR INSERT TO anon, authenticated WITH CHECK (
+  public.can_submit_to_session(ecosystem_id, session_id)
 );
 CREATE POLICY "Staff/Admin can view ecosystem submissions" ON submissions FOR SELECT TO authenticated USING (ecosystem_id = get_my_ecosystem_id());
 
 -- DISH FEEDBACK:
-CREATE POLICY "Students can insert feedback" ON dish_feedback FOR INSERT WITH CHECK (
+CREATE POLICY "Students can insert feedback" ON dish_feedback FOR INSERT TO anon, authenticated WITH CHECK (
   EXISTS (
     SELECT 1
     FROM submissions s

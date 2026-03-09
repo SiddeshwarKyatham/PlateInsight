@@ -234,6 +234,15 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE SQL SECURITY DEFINER SET search_path = public;
 
+GRANT EXECUTE ON FUNCTION public.can_submit_to_session(UUID, UUID) TO anon, authenticated;
+
+DROP POLICY IF EXISTS "Public can view approved sessions" ON public.meal_sessions;
+CREATE POLICY "Public can view approved sessions"
+ON public.meal_sessions
+FOR SELECT
+TO anon, authenticated
+USING (status = 'approved');
+
 DROP POLICY IF EXISTS "Students can insert submissions" ON public.submissions;
 CREATE POLICY "Students can insert submissions"
 ON public.submissions

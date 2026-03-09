@@ -117,12 +117,18 @@ export default function Success() {
           todaysSavings: savingsToday
         });
       } catch (err: any) {
+        const message = String(err?.message || "").toLowerCase();
         const isDuplicate =
           err?.code === "23505" ||
-          String(err?.message || "").toLowerCase().includes("duplicate");
+          message.includes("duplicate");
+        const isRlsBlocked =
+          err?.code === "42501" ||
+          message.includes("row-level security policy");
 
         if (isDuplicate) {
           setSaveError("This device already submitted for the current session.");
+        } else if (isRlsBlocked) {
+          setSaveError("Session is closed or invalid. Please rescan the latest QR from staff.");
         } else {
           setSaveError(err?.message || "Failed to save your submission. Please retry.");
         }
